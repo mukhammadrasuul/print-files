@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: white;
+        }
+
+        .report-container {
+            width: 210mm; /* A4 width */
+            min-height: 297mm; /* A4 height */
+            margin: 0 auto;
+            padding: 10mm;
+            box-sizing: border-box;
+        }
+
+        .report-header {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .report-table {
+            text-align: left;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .date-section {
+            text-align: right;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .summary-table th,
+        .summary-table td {
+            background-color: #e0e0e0;
+            font-weight: bold;
+        }
+        
+        .total-row td {
+            background-color: #d0d0d0;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .table-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .table-column {
+            width: 50%;
+        }
+
+        .table-column table {
+            width: 100%;
+            margin-bottom: 0;
+        }
+
+        /* Make sure tables stay properly sized */
+        .table-column td, .table-column th {
+            word-break: break-word;
+        }
+
+        @media print {
+            .no-print {
+                display: none;
+            }
+            .table-container {
+                page-break-inside: avoid;
+            }
+            
+            /* Make sure summary table also doesn't break across pages */
+            .summary-table {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="no-print">
+    <h1>Financial Report Generator</h1>
+    <p>This page will automatically load data from the URL parameters and generate a report.</p>
+    <button onclick="window.print()">Print Report</button>
+</div>
+
+<div class="report-container">
+    <div class="report-header">
+        Kunlik moliyaviy hisobot
+    </div>
+    
+    <div class="date-section">
+        Hisobot berilayotgan sana: <span id="reportDate"></span>
+    </div>
+    
+    <!-- Two-column layout for tables -->
+    <div class="table-container">
+        <!-- Kirim (Income) Table -->
+        <div class="table-column">
+            <div class="report-table">Kirim</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Bemor ism-sharifi</th>
+                        <th>Summasi</th>
+                    </tr>
+                </thead>
+                <tbody id="kirimTableBody">
+                    <!-- JavaScript will populate this -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Chiqim (Expense) Table -->
+        <div class="table-column">
+            <div class="report-table">Chiqim</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Chiqim nomi</th>
+                        <th>Summasi</th>
+                    </tr>
+                </thead>
+                <tbody id="chiqimTableBody">
+                    <!-- JavaScript will populate this -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Summary table - full width at bottom -->
+    <table class="summary-table">
+        <thead>
+            <tr>
+                <th>Jami kirim</th>
+                <th>Jami chiqim</th>
+                <th>Jami foyda</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td id="totalKirim"></td>
+                <td id="totalChiqim"></td>
+                <td id="totalFoyda"></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <div class="footer">
+        Hisobot yaratilgan sana: <span id="generatedDate"></span>
+    </div>
+</div>
+
+<script>
+    // Helper function to get URL parameters
+    function getUrlParams() {
+        const params = {};
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        
+        // Get all parameters from URL
+        for(const [key, value] of urlParams.entries()) {
+            params[key] = value;
+        }
+        
+        return params;
+    }
+    
+    // Helper function to safely split comma-separated values
+    function safeExplode(value) {
+        if (!value || value === '') {
+            return [];
+        }
+        // Split by comma and trim each value
+        return value.split(',').map(item => item.trim());
+    }
+    
+    // Format number with commas for thousands
+    function formatNumber(num) {
+        if (!num || isNaN(num)) return '0';
+        return Math.round(parseFloat(num)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
+    // Main function to process data and generate report
+    function generateReport() {
+        const params = getUrlParams();
+        
+        // Get all the values with safe handling
+        const sana = params.sana || '';
+        const ism = safeExplode(params.ism || '');
+        const kirimsumma = safeExplode(params.kirimsumma || '');
+        const chiqim = safeExplode(params.chiqim || '');
+        const chiqimsumma = safeExplode(params.chiqimsumma || '');
+        const jamikirim = parseFloat(params.jamikirim || 0);
+        const jamichiqim = parseFloat(params.jamichiqim || 0);
+        const jamifoyda = parseFloat(params.jamifoyda || 0);
+        
+        // Process kirim (income) entries
+        const kirimReports = [];
+        for (let i = 0; i < ism.length; i++) {
+            const currentKirimSumma = kirimsumma[i] ? parseFloat(kirimsumma[i]) : 0;
+            
+            // Skip this entry if kirimsumma is 0
+            if (currentKirimSumma === 0) {
+                continue;
+            }
+            
+            kirimReports.push({
+                ism: ism[i] || '',
+                kirimsumma: currentKirimSumma
+            });
+        }
+        
+        // Process chiqim (expense) entries
+        const chiqimReports = [];
+        const actualChiqimCount = Math.min(chiqim.length, chiqimsumma.length);
+        for (let i = 0; i < actualChiqimCount; i++) {
+            // Only add if we have both a name and value (non-empty)
+            if (chiqim[i] && chiqimsumma[i]) {
+                chiqimReports.push({
+                    chiqim: chiqim[i],
+                    chiqimsumma: parseFloat(chiqimsumma[i])
+                });
+            }
+        }
+        
+        // Populate the report content
+        document.getElementById('reportDate').textContent = sana;
+        document.getElementById('generatedDate').textContent = new Date().toLocaleString();
+        
+        // Populate kirim table
+        const kirimTableBody = document.getElementById('kirimTableBody');
+        kirimTableBody.innerHTML = '';
+        kirimReports.forEach(report => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${report.ism}</td>
+                <td>${formatNumber(report.kirimsumma)}</td>
+            `;
+            kirimTableBody.appendChild(row);
+        });
+        
+        // Populate chiqim table
+        const chiqimTableBody = document.getElementById('chiqimTableBody');
+        chiqimTableBody.innerHTML = '';
+        chiqimReports.forEach(report => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${report.chiqim}</td>
+                <td>${formatNumber(report.chiqimsumma)}</td>
+            `;
+            chiqimTableBody.appendChild(row);
+        });
+        
+        // Populate summary table
+        document.getElementById('totalKirim').textContent = formatNumber(jamikirim);
+        document.getElementById('totalChiqim').textContent = formatNumber(jamichiqim);
+        document.getElementById('totalFoyda').textContent = formatNumber(jamifoyda);
+        
+        // If this is being called from AppSheet with print parameter, automatically print
+        if (params.print === 'true' || params.print === '1') {
+            setTimeout(() => {
+                window.print();
+            }, 500); // Small delay to ensure everything is rendered
+        }
+    }
+    
+    // Run the report generator when the page loads
+    window.onload = generateReport;
+</script>
+</body>
+</html>
