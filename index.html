@@ -297,6 +297,21 @@
     
     // Run the report generator when the page loads
     window.onload = generateReport;
+    // Add this to your existing script section, just before the closing </script> tag
+
+// Check if automatic printing is requested via URL parameter
+function checkForAutoPrint() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('print') === 'true' || params.get('print') === '1') {
+        // Wait a moment to ensure everything is rendered
+        setTimeout(() => {
+            window.print();
+        }, 500);
+    }
+}
+
+// Call this function when the page loads
+window.addEventListener('load', checkForAutoPrint);
 </script>
 </body>
 </html>
