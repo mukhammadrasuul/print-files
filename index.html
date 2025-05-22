@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -79,10 +79,6 @@
         }
     </style>
 </head>
-<!--
-  The window.print() is called by JavaScript after content is loaded.
-  The window.close() is called by JavaScript after printing.
--->
 <body>
     <div class="receipt">
         <div class="center">
@@ -96,13 +92,9 @@
         </div>
         <div class="line"></div>
         <div class="bold">Хизматлар</div>
-        <div class="items" id="items-container">
-            </div>
-        <div class="line"></div>
-        <div class="item-row bold"><span>Жами:</span><span id="jami-summa"></span></div>
-        <div id="payment-details-container">
-            </div>
-        <div class="line"></div>
+        <div class="items" id="items-container"></div> <div class="line"></div>
+        <div class="item-row bold" id="jami-summa-row"><span>Жами:</span><span id="jami-summa"></span></div>
+        <div id="payment-details-container"></div> <div class="line" id="final-line-before-footer"></div>
         <div class="footer">
             Бизни танлаганингиз учун раҳмат!<br>
             Телефон: 90 275 03 23
@@ -110,139 +102,248 @@
     </div>
 
     <script>
-        // Wait for the DOM to be fully loaded before running the script
-        document.addEventListener('DOMContentLoaded', function () {
-            const urlParams = new URLSearchParams(window.location.search);
+        // --- Configuration for Special Services ---
+        // Add names of services that should get their own receipt. Case-insensitive.
+        const SPECIAL_SERVICE_NAMES = ['фиброточ', 'УЗИ обший', 'УЗИ шитовидка', 'УЗИ ўт қопи', 'УЗИ мошонки', 'УЗИ сийдик системаси', 'ЕКГ'];
 
-            // Helper function to get single value from URL parameters
-            function safeGetValue(key, isNumber = false) {
-                const value = urlParams.get(key);
-                if (value === null || value === "") { // Check for null (not present) or empty string
-                    return isNumber ? 0 : '';
-                }
-                // For numeric values, ensure they are parsed correctly.
-                // For non-numeric, return as is.
-                return isNumber ? parseFloat(value) : value;
+        // --- Global Print Job Management ---
+        let printJobs = [];
+        let currentPrintJobIndex = 0;
+        let urlParams; // Will be initialized in DOMContentLoaded
+
+        // --- Helper Functions (should be defined before use or within DOMContentLoaded) ---
+        function safeGetValue(key, isNumber = false) {
+            if (!urlParams) return isNumber ? 0 : ''; // Should not happen if called correctly
+            const value = urlParams.get(key);
+            if (value === null || value === "") {
+                return isNumber ? 0 : '';
             }
+            return isNumber ? parseFloat(value) : value;
+        }
 
-            // Helper function to safely handle explode operation (split by comma)
-            function safeExplode(key) {
-                const value = urlParams.get(key);
-                // If the parameter exists and is not an empty string, split it.
-                // Otherwise, return an array with a single empty string, similar to PHP's array('').
-                return (value && value !== "") ? value.split(",") : [''];
+        function safeExplode(key) {
+            if (!urlParams) return ['']; // Should not happen
+            const value = urlParams.get(key);
+            return (value && value !== "") ? value.split(",") : [''];
+        }
+
+        function numberFormat(number, decimals = 0, decPoint = '.', thousandsSep = ',') {
+            number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+            const n = !isFinite(+number) ? 0 : +number;
+            const prec = !isFinite(+decimals) ? 0 : Math.abs(decimals);
+            const sep = (typeof thousandsSep === 'undefined') ? ',' : thousandsSep;
+            const dec = (typeof decPoint === 'undefined') ? '.' : decPoint;
+            let s = '';
+            const toFixedFix = function (num, pr) {
+                const k = Math.pow(10, pr);
+                return '' + (Math.round(num * k) / k).toFixed(pr);
+            };
+            s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+            if (s[0].length > 3) {
+                s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
             }
-
-            // Helper function to format numbers (similar to PHP's number_format)
-            function numberFormat(number, decimals = 0, decPoint = '.', thousandsSep = ',') {
-                number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-                const n = !isFinite(+number) ? 0 : +number;
-                const prec = !isFinite(+decimals) ? 0 : Math.abs(decimals);
-                const sep = (typeof thousandsSep === 'undefined') ? ',' : thousandsSep;
-                const dec = (typeof decPoint === 'undefined') ? '.' : decPoint;
-                let s = '';
-                const toFixedFix = function (num, pr) {
-                    const k = Math.pow(10, pr);
-                    return '' + (Math.round(num * k) / k).toFixed(pr);
-                };
-                s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-                if (s[0].length > 3) {
-                    s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
-                }
-                if ((s[1] || '').length < prec) {
-                    s[1] = s[1] || '';
-                    s[1] += new Array(prec - s[1].length + 1).join('0');
-                }
-                return s.join(dec);
+            if ((s[1] || '').length < prec) {
+                s[1] = s[1] || '';
+                s[1] += new Array(prec - s[1].length + 1).join('0');
             }
+            return s.join(dec);
+        }
 
-            // Get all values from URL parameters using the helper functions
-            const sana = safeGetValue("sana");
-            const kirimid = safeGetValue("kirimid");
-            const bemorismi = safeGetValue("bemorismi");
-            const bemortelefon = safeGetValue("bemortelefon");
-            const bemoryili = safeGetValue("bemoryili");
-            const doktor = safeGetValue("doktor");
-            const jamisumma = safeGetValue("jamisumma"); // This is a string, will be parsed by numberFormat
-            const paid = safeGetValue("paid", true); // Parsed as number
-            const qarzdorlik = safeGetValue("qarzdorlik", true); // Parsed as number
+        // --- Function to populate receipt content for a given print job ---
+        function populateReceiptContent(job) {
+            // Patient info is static and set once initially.
 
-            // Get arrays for services and their counts
-            const xizmatlar = safeExplode("xizmatlar");
-            const soni = safeExplode("soni");
-
-            // Populate patient and doctor information
-            document.getElementById('bemor-info').textContent = `${bemorismi} (ID: ${kirimid})`;
-            document.getElementById('telefon-info').textContent = `${bemortelefon} (${bemoryili})`;
-            document.getElementById('doktor-info').textContent = doktor;
-            document.getElementById('sana-info').textContent = sana;
-
-            // Populate services list
             const itemsContainer = document.getElementById('items-container');
-            itemsContainer.innerHTML = ''; // Clear any existing content (though it should be empty)
+            itemsContainer.innerHTML = ''; // Clear previous items
             let counter = 1;
 
-            // Create the result array for services
-            // This logic ensures that even if 'xizmatlar' is [''], the loop runs once to match PHP behavior
-            if (xizmatlar.length > 0) {
-                xizmatlar.forEach((xizmat, index) => {
-                    // Only add item if xizmat is not an empty string from an empty URL param
-                    // or if it's the only item and it's an empty string (to match PHP's behavior of showing a blank line)
-                    if (xizmat !== '' || (xizmatlar.length === 1 && xizmat === '')) {
-                        const itemRow = document.createElement('div');
-                        itemRow.className = 'item-row';
-                        const currentSoni = soni[index] || ''; // Get corresponding 'soni' or empty string
-                        itemRow.innerHTML = `<span>${counter}) ${xizmat}</span><span>${currentSoni}</span>`;
-                        itemsContainer.appendChild(itemRow);
-                        counter++;
+            if (job.items && job.items.length > 0) {
+                job.items.forEach(item => {
+                    const itemRow = document.createElement('div');
+                    itemRow.className = 'item-row';
+                    const itemName = item.name || '';
+                    const itemCount = item.count || '';
+                    itemRow.innerHTML = `<span>${counter}) ${itemName}</span><span>${itemCount}</span>`;
+                    itemsContainer.appendChild(itemRow);
+                    counter++;
+                });
+            } else if (job.type === 'empty_shell_financials') {
+                // No items to list, but financials will be shown.
+                // itemsContainer remains empty.
+            }
+
+
+            // Financials visibility and content
+            const jamiSummaRowEl = document.getElementById('jami-summa-row');
+            const jamiSummaEl = document.getElementById('jami-summa');
+            const paymentDetailsContainer = document.getElementById('payment-details-container');
+            const finalLineEl = document.getElementById('final-line-before-footer');
+
+
+            if (job.showFinancials) {
+                const jamisummaVal = safeGetValue("jamisumma");
+                const paidVal = safeGetValue("paid", true);
+                const qarzdorlikVal = safeGetValue("qarzdorlik", true);
+
+                jamiSummaEl.textContent = numberFormat(parseFloat(jamisummaVal) || 0, 0, '', ',');
+                
+                let paymentHtml = '';
+                // Show payment details if paid or qarzdorlik is positive, or if they are explicitly zero but jamisumma is present
+                if (urlParams.has('jamisumma')) { // Check if financial section is relevant at all
+                    if (paidVal > 0 || qarzdorlikVal > 0 || (paidVal === 0 && qarzdorlikVal === 0) ) {
+                        paymentHtml += `<div class="item-row"><span>Тўланди:</span><span>${numberFormat(paidVal, 0, '', ',')}</span></div>`;
+                        paymentHtml += `<div class="item-row"><span>Қарздорлик:</span><span>${numberFormat(qarzdorlikVal, 0, '', ',')}</span></div>`;
                     }
+                }
+                paymentDetailsContainer.innerHTML = paymentHtml;
+
+                // Ensure financial sections are visible
+                jamiSummaRowEl.style.display = '';
+                paymentDetailsContainer.style.display = '';
+                finalLineEl.style.display = '';
+
+            } else {
+                jamiSummaEl.textContent = '';
+                paymentDetailsContainer.innerHTML = '';
+                // Hide financial sections
+                jamiSummaRowEl.style.display = 'none';
+                paymentDetailsContainer.style.display = 'none';
+                finalLineEl.style.display = 'none'; // Hide the line above footer too if no financials
+            }
+        }
+
+        // --- Function to execute the next print job ---
+        function executeNextPrintJob() {
+            if (currentPrintJobIndex < printJobs.length) {
+                populateReceiptContent(printJobs[currentPrintJobIndex]);
+                window.print(); // This will trigger onafterprint (if supported) or block
+            }
+            // Note: currentPrintJobIndex is incremented in the onafterprint handler
+            // or after the blocking window.print() if onafterprint is not supported.
+        }
+
+        // --- Main script execution on DOMContentLoaded ---
+        document.addEventListener('DOMContentLoaded', function () {
+            urlParams = new URLSearchParams(window.location.search);
+
+            // Populate static patient information once
+            document.getElementById('bemor-info').textContent = `${safeGetValue("bemorismi")} (ID: ${safeGetValue("kirimid")})`;
+            document.getElementById('telefon-info').textContent = `${safeGetValue("bemortelefon")} (${safeGetValue("bemoryili")})`;
+            document.getElementById('doktor-info').textContent = safeGetValue("doktor");
+            document.getElementById('sana-info').textContent = safeGetValue("sana");
+
+            // Prepare service items
+            const xizmatlarRaw = safeExplode("xizmatlar");
+            const soniRaw = safeExplode("soni");
+            const allServiceObjects = [];
+
+            // Only create service objects if xizmatlar is not just a single empty string (i.e., parameter was empty or missing)
+            if (!(xizmatlarRaw.length === 1 && xizmatlarRaw[0] === '')) {
+                xizmatlarRaw.forEach((xizmat, index) => {
+                    if (xizmat.trim() !== '' || (xizmatlarRaw.length === 1 && xizmat === '')) { // Keep blank item if it's the only one
+                         allServiceObjects.push({
+                            name: xizmat,
+                            count: soniRaw[index] || '',
+                        });
+                    }
+                });
+            }
+            
+            const individualSpecialItemJobsData = []; // Holds items for special receipts
+            const otherItemsData = [];                 // Holds items for the main/other receipt
+
+            allServiceObjects.forEach(item => {
+                // Case-insensitive check against SPECIAL_SERVICE_NAMES
+                if (SPECIAL_SERVICE_NAMES.some(specialName => item.name.toUpperCase() === specialName.toUpperCase())) {
+                    individualSpecialItemJobsData.push(item); // Each special item gets its own receipt
+                } else {
+                    otherItemsData.push(item);
+                }
+            });
+
+            // Build the printJobs array
+            printJobs = [];
+
+            individualSpecialItemJobsData.forEach(specialItem => {
+                printJobs.push({
+                    items: [specialItem], // One item per special receipt
+                    showFinancials: false, // Financials not shown on individual special item receipts by default
+                    type: 'special_item'
+                });
+            });
+
+            if (otherItemsData.length > 0) {
+                printJobs.push({
+                    items: otherItemsData,
+                    showFinancials: true, // "Other items" receipt always shows financials
+                    type: 'other_items'
+                });
+            } else if (printJobs.length > 0) {
+                // If there were ONLY special items (no "other" items),
+                // the LAST special item's job should show the financials.
+                printJobs[printJobs.length - 1].showFinancials = true;
+            } else if (allServiceObjects.length === 0 && urlParams.has('bemorismi')) {
+                // Case: No actual services listed (e.g., xizmatlar was empty or missing)
+                // but basic patient info exists, so print a shell receipt with financials.
+                printJobs.push({
+                    items: [], // No items to list
+                    showFinancials: true,
+                    type: 'empty_shell_financials'
                 });
             }
 
 
-            // Populate total sum
-            // Parse jamisumma to float for formatting, default to 0 if parsing fails
-            document.getElementById('jami-summa').textContent = numberFormat(parseFloat(jamisumma) || 0, 0, '', ',');
-
-            // Populate payment details if paid or qarzdorlik is greater than 0
-            const paymentDetailsContainer = document.getElementById('payment-details-container');
-            if (paid > 0 || qarzdorlik > 0) {
-                let paymentHtml = '';
-                // The original PHP showed both if the condition (paid > 0 || qarzdorlik > 0) was met.
-                // Values would be formatted, so 0 would show as '0'.
-                paymentHtml += `<div class="item-row"><span>Тўланди:</span><span>${numberFormat(paid, 0, '', ',')}</span></div>`;
-                paymentHtml += `<div class="item-row"><span>Қарздорлик:</span><span>${numberFormat(qarzdorlik, 0, '', ',')}</span></div>`;
-                paymentDetailsContainer.innerHTML = paymentHtml;
+            // Setup onafterprint handler (or fallback)
+            if (typeof window.onafterprint !== 'undefined') {
+                window.onafterprint = function () {
+                    currentPrintJobIndex++;
+                    if (currentPrintJobIndex < printJobs.length) {
+                        executeNextPrintJob();
+                    } else {
+                        window.close(); // All jobs printed, now close
+                    }
+                };
+            } else {
+                // Fallback for browsers that don't support onafterprint
+                // This will attempt to print jobs sequentially, but closing is less controlled.
+                // The original PHP had onfocus="window.close()", which is aggressive.
+                // This loop attempts to print all, then sets up the close.
+                window.onfocus = function() { // Set up the final close attempt
+                    if (currentPrintJobIndex >= printJobs.length) { // Ensure all prints were attempted
+                         setTimeout(function() { if (document.hasFocus()) window.close(); }, 500);
+                    }
+                };
             }
 
-            // --- Printing and Closing ---
-            // Call window.print() after all content is populated.
-            window.print();
+            // Start the printing process if there are jobs
+            if (printJobs.length > 0) {
+                executeNextPrintJob();
+            } else if (!urlParams.has('bemorismi')) {
+                // No relevant parameters at all, maybe do nothing or show a message.
+                // For now, it does nothing if no print jobs and no bemorismi.
+                console.log("No print jobs and no patient info found. Nothing to print.");
+            }
 
-            // Set up an event listener for after printing.
-            // Note: window.close() might be blocked by the browser if the window wasn't opened by a script.
-            // The original file used onfocus="window.close()". onafterprint is generally more appropriate.
-            // If you strictly need the onfocus behavior, you could add:
-            // window.onfocus = function() { if (document.hasFocus()) window.close(); };
-            // However, onafterprint is usually preferred.
-            if (typeof window.onafterprint !== 'undefined') { // Check if onafterprint is supported
-                 window.onafterprint = function () {
-                    window.close();
-                };
-            } else { // Fallback for older browsers or different behavior (closer to original onfocus)
-                // This will attempt to close when the window regains focus after print dialog.
-                window.onfocus = function() {
-                    // A small delay can sometimes help ensure the print dialog is truly gone.
-                    setTimeout(function() {
-                        if (document.hasFocus()) { // Check if the window actually has focus
-                           // window.close(); // Commented out as it can be aggressive.
-                                             // User might want to keep the tab open.
-                                             // The original PHP had onfocus="window.close()" which is quite direct.
-                                             // Re-enabling if strict adherence to original behavior is paramount.
-                           window.close();
+
+            // Fallback for browsers without onafterprint to iterate through prints
+            // This part is tricky because window.print() is blocking.
+            if (typeof window.onafterprint === 'undefined' && printJobs.length > 0) {
+                // If onafterprint is not supported, we manually iterate after each print call.
+                // This relies on the blocking nature of print().
+                // This is a simplified loop and might have issues with the onfocus close.
+                // The primary mechanism should be onafterprint.
+                (async () => {
+                    for (let i = 0; i < printJobs.length; i++) {
+                        currentPrintJobIndex = i; // Make sure index is set for onfocus check
+                        populateReceiptContent(printJobs[i]);
+                        window.print(); // This blocks
+                        // If we are here, print dialog was closed.
+                        if (i === printJobs.length - 1) { // Last print job
+                           // onfocus is already set to handle closing
                         }
-                    }, 500);
-                };
+                    }
+                    currentPrintJobIndex = printJobs.length; // Signal all attempted
+                })();
             }
         });
     </script>
