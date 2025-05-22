@@ -3,315 +3,248 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Financial Report</title>
+    <title>Receipt</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: monospace;
+            font-size: 16px;
             margin: 0;
-            padding: 20px;
-            background-color: white;
+            padding: 0;
+            background: #fff;
         }
 
-        .report-container {
-            width: 210mm; /* A4 width */
-            min-height: 297mm; /* A4 height */
-            margin: 0 auto;
-            padding: 10mm;
-            box-sizing: border-box;
+        .receipt {
+            width: 80mm; /* Standard receipt printer width */
+            padding: 10px;
+            box-sizing: border-box; /* Ensures padding doesn't add to width */
         }
 
-        .report-header {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 24px;
+        .center {
+            text-align: center; /* Changed to center for logo as per typical receipts */
+            margin-bottom: 5px;
+        }
+
+        .line {
+            border-bottom: 1px dashed #000;
+            margin: 6px 0;
+        }
+
+        .info {
+            margin-bottom: 5px;
+        }
+
+        .info div { /* Ensure each info line is block to take full width */
+            margin-bottom: 2px;
+        }
+
+        .info span:first-child { /* Label part of the info line */
+            display: inline-block;
+            min-width: 70px; /* Adjusted min-width for labels */
             font-weight: bold;
         }
-
-        .report-table {
-            text-align: left;
-            margin-bottom: 10px;
-            font-size: 18px;
-            font-weight: bold;
+        .info span.value { /* Value part of the info line */
+            display: inline;
         }
 
-        .date-section {
+
+        .items {
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3px;
+        }
+        .item-row span:first-child { /* Item name */
+            flex-grow: 1;
+            padding-right: 5px; /* Space between item name and count */
+            word-break: break-word; /* Allow long item names to wrap */
+        }
+        .item-row span:last-child { /* Item count/price */
             text-align: right;
-            margin-bottom: 20px;
-            font-size: 14px;
+            min-width: 30px; /* Ensure some space for count/price */
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-
-        th, td {
-            border: 1px solid #000;
-            padding: 8px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-        }
-
-        .summary-table th,
-        .summary-table td {
-            background-color: #e0e0e0;
-            font-weight: bold;
-        }
-        
-        .total-row td {
-            background-color: #d0d0d0;
-        }
 
         .footer {
+            margin-top: 10px;
+            font-size: 12px;
             text-align: center;
-            margin-top: 30px;
         }
 
-        .table-container {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .table-column {
-            width: 50%;
-        }
-
-        .table-column table {
-            width: 100%;
-            margin-bottom: 0;
-        }
-
-        /* Make sure tables stay properly sized */
-        .table-column td, .table-column th {
-            word-break: break-word;
-        }
-
-        @media print {
-            .no-print {
-                display: none;
-            }
-            .table-container {
-                page-break-inside: avoid;
-            }
-            
-            /* Make sure summary table also doesn't break across pages */
-            .summary-table {
-                page-break-inside: avoid;
-            }
+        .bold {
+            font-weight: bold;
         }
     </style>
 </head>
+<!--
+  The window.print() is called by JavaScript after content is loaded.
+  The window.close() is called by JavaScript after printing.
+-->
 <body>
-<div class="no-print">
-    <h1>Financial Report Generator</h1>
-    <p>This page will automatically load data from the URL parameters and generate a report.</p>
-    <button onclick="window.print()">Print Report</button>
-</div>
-
-<div class="report-container">
-    <div class="report-header">
-        Kunlik moliyaviy hisobot
-    </div>
-    
-    <div class="date-section">
-        Hisobot berilayotgan sana: <span id="reportDate"></span>
-    </div>
-    
-    <!-- Two-column layout for tables -->
-    <div class="table-container">
-        <!-- Kirim (Income) Table -->
-        <div class="table-column">
-            <div class="report-table">Kirim</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Bemor ism-sharifi</th>
-                        <th>Summasi</th>
-                    </tr>
-                </thead>
-                <tbody id="kirimTableBody">
-                    <!-- JavaScript will populate this -->
-                </tbody>
-            </table>
+    <div class="receipt">
+        <div class="center">
+            <img src="logo.jpg" alt="Logo" style="max-width: 60mm; max-height: 25mm; border-radius: 8px;">
         </div>
-        
-        <!-- Chiqim (Expense) Table -->
-        <div class="table-column">
-            <div class="report-table">Chiqim</div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Chiqim nomi</th>
-                        <th>Summasi</th>
-                    </tr>
-                </thead>
-                <tbody id="chiqimTableBody">
-                    <!-- JavaScript will populate this -->
-                </tbody>
-            </table>
+        <div class="info">
+            <div><span>Бемор:</span> <span class="value" id="bemor-info"></span></div>
+            <div><span>Тел №:</span> <span class="value" id="telefon-info"></span></div>
+            <div><span>Шифокор:</span> <span class="value" id="doktor-info"></span></div>
+            <div><span>Сана:</span> <span class="value" id="sana-info"></span></div>
+        </div>
+        <div class="line"></div>
+        <div class="bold">Хизматлар</div>
+        <div class="items" id="items-container">
+            </div>
+        <div class="line"></div>
+        <div class="item-row bold"><span>Жами:</span><span id="jami-summa"></span></div>
+        <div id="payment-details-container">
+            </div>
+        <div class="line"></div>
+        <div class="footer">
+            Бизни танлаганингиз учун раҳмат!<br>
+            Телефон: 90 275 03 23
         </div>
     </div>
-    
-    <!-- Summary table - full width at bottom -->
-    <table class="summary-table">
-        <thead>
-            <tr>
-                <th>Jami kirim</th>
-                <th>Jami chiqim</th>
-                <th>Jami foyda</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td id="totalKirim"></td>
-                <td id="totalChiqim"></td>
-                <td id="totalFoyda"></td>
-            </tr>
-        </tbody>
-    </table>
-    
-    <div class="footer">
-        Hisobot yaratilgan sana: <span id="generatedDate"></span>
-    </div>
-</div>
 
-<script>
-    // Helper function to get URL parameters
-    function getUrlParams() {
-        const params = {};
-        const queryString = window.location.search;
-        const urlParams = new URLSearchParams(queryString);
-        
-        // Get all parameters from URL
-        for(const [key, value] of urlParams.entries()) {
-            params[key] = value;
-        }
-        
-        return params;
-    }
-    
-    // Helper function to safely split comma-separated values
-    function safeExplode(value) {
-        if (!value || value === '') {
-            return [];
-        }
-        // Split by comma and trim each value
-        return value.split(',').map(item => item.trim());
-    }
-    
-    // Format number with commas for thousands
-    function formatNumber(num) {
-        if (!num || isNaN(num)) return '0';
-        return Math.round(parseFloat(num)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-    
-    // Main function to process data and generate report
-    function generateReport() {
-        const params = getUrlParams();
-        
-        // Get all the values with safe handling
-        const sana = params.sana || '';
-        const ism = safeExplode(params.ism || '');
-        const kirimsumma = safeExplode(params.kirimsumma || '');
-        const chiqim = safeExplode(params.chiqim || '');
-        const chiqimsumma = safeExplode(params.chiqimsumma || '');
-        const jamikirim = parseFloat(params.jamikirim || 0);
-        const jamichiqim = parseFloat(params.jamichiqim || 0);
-        const jamifoyda = parseFloat(params.jamifoyda || 0);
-        
-        // Process kirim (income) entries
-        const kirimReports = [];
-        for (let i = 0; i < ism.length; i++) {
-            const currentKirimSumma = kirimsumma[i] ? parseFloat(kirimsumma[i]) : 0;
-            
-            // Skip this entry if kirimsumma is 0
-            if (currentKirimSumma === 0) {
-                continue;
+    <script>
+        // Wait for the DOM to be fully loaded before running the script
+        document.addEventListener('DOMContentLoaded', function () {
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Helper function to get single value from URL parameters
+            function safeGetValue(key, isNumber = false) {
+                const value = urlParams.get(key);
+                if (value === null || value === "") { // Check for null (not present) or empty string
+                    return isNumber ? 0 : '';
+                }
+                // For numeric values, ensure they are parsed correctly.
+                // For non-numeric, return as is.
+                return isNumber ? parseFloat(value) : value;
             }
-            
-            kirimReports.push({
-                ism: ism[i] || '',
-                kirimsumma: currentKirimSumma
-            });
-        }
-        
-        // Process chiqim (expense) entries
-        const chiqimReports = [];
-        const actualChiqimCount = Math.min(chiqim.length, chiqimsumma.length);
-        for (let i = 0; i < actualChiqimCount; i++) {
-            // Only add if we have both a name and value (non-empty)
-            if (chiqim[i] && chiqimsumma[i]) {
-                chiqimReports.push({
-                    chiqim: chiqim[i],
-                    chiqimsumma: parseFloat(chiqimsumma[i])
+
+            // Helper function to safely handle explode operation (split by comma)
+            function safeExplode(key) {
+                const value = urlParams.get(key);
+                // If the parameter exists and is not an empty string, split it.
+                // Otherwise, return an array with a single empty string, similar to PHP's array('').
+                return (value && value !== "") ? value.split(",") : [''];
+            }
+
+            // Helper function to format numbers (similar to PHP's number_format)
+            function numberFormat(number, decimals = 0, decPoint = '.', thousandsSep = ',') {
+                number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
+                const n = !isFinite(+number) ? 0 : +number;
+                const prec = !isFinite(+decimals) ? 0 : Math.abs(decimals);
+                const sep = (typeof thousandsSep === 'undefined') ? ',' : thousandsSep;
+                const dec = (typeof decPoint === 'undefined') ? '.' : decPoint;
+                let s = '';
+                const toFixedFix = function (num, pr) {
+                    const k = Math.pow(10, pr);
+                    return '' + (Math.round(num * k) / k).toFixed(pr);
+                };
+                s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
+                if (s[0].length > 3) {
+                    s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
+                }
+                if ((s[1] || '').length < prec) {
+                    s[1] = s[1] || '';
+                    s[1] += new Array(prec - s[1].length + 1).join('0');
+                }
+                return s.join(dec);
+            }
+
+            // Get all values from URL parameters using the helper functions
+            const sana = safeGetValue("sana");
+            const kirimid = safeGetValue("kirimid");
+            const bemorismi = safeGetValue("bemorismi");
+            const bemortelefon = safeGetValue("bemortelefon");
+            const bemoryili = safeGetValue("bemoryili");
+            const doktor = safeGetValue("doktor");
+            const jamisumma = safeGetValue("jamisumma"); // This is a string, will be parsed by numberFormat
+            const paid = safeGetValue("paid", true); // Parsed as number
+            const qarzdorlik = safeGetValue("qarzdorlik", true); // Parsed as number
+
+            // Get arrays for services and their counts
+            const xizmatlar = safeExplode("xizmatlar");
+            const soni = safeExplode("soni");
+
+            // Populate patient and doctor information
+            document.getElementById('bemor-info').textContent = `${bemorismi} (ID: ${kirimid})`;
+            document.getElementById('telefon-info').textContent = `${bemortelefon} (${bemoryili})`;
+            document.getElementById('doktor-info').textContent = doktor;
+            document.getElementById('sana-info').textContent = sana;
+
+            // Populate services list
+            const itemsContainer = document.getElementById('items-container');
+            itemsContainer.innerHTML = ''; // Clear any existing content (though it should be empty)
+            let counter = 1;
+
+            // Create the result array for services
+            // This logic ensures that even if 'xizmatlar' is [''], the loop runs once to match PHP behavior
+            if (xizmatlar.length > 0) {
+                xizmatlar.forEach((xizmat, index) => {
+                    // Only add item if xizmat is not an empty string from an empty URL param
+                    // or if it's the only item and it's an empty string (to match PHP's behavior of showing a blank line)
+                    if (xizmat !== '' || (xizmatlar.length === 1 && xizmat === '')) {
+                        const itemRow = document.createElement('div');
+                        itemRow.className = 'item-row';
+                        const currentSoni = soni[index] || ''; // Get corresponding 'soni' or empty string
+                        itemRow.innerHTML = `<span>${counter}) ${xizmat}</span><span>${currentSoni}</span>`;
+                        itemsContainer.appendChild(itemRow);
+                        counter++;
+                    }
                 });
             }
-        }
-        
-        // Populate the report content
-        document.getElementById('reportDate').textContent = sana;
-        document.getElementById('generatedDate').textContent = new Date().toLocaleString();
-        
-        // Populate kirim table
-        const kirimTableBody = document.getElementById('kirimTableBody');
-        kirimTableBody.innerHTML = '';
-        kirimReports.forEach(report => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${report.ism}</td>
-                <td>${formatNumber(report.kirimsumma)}</td>
-            `;
-            kirimTableBody.appendChild(row);
-        });
-        
-        // Populate chiqim table
-        const chiqimTableBody = document.getElementById('chiqimTableBody');
-        chiqimTableBody.innerHTML = '';
-        chiqimReports.forEach(report => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${report.chiqim}</td>
-                <td>${formatNumber(report.chiqimsumma)}</td>
-            `;
-            chiqimTableBody.appendChild(row);
-        });
-        
-        // Populate summary table
-        document.getElementById('totalKirim').textContent = formatNumber(jamikirim);
-        document.getElementById('totalChiqim').textContent = formatNumber(jamichiqim);
-        document.getElementById('totalFoyda').textContent = formatNumber(jamifoyda);
-        
-        // If this is being called from AppSheet with print parameter, automatically print
-        if (params.print === 'true' || params.print === '1') {
-            setTimeout(() => {
-                window.print();
-            }, 500); // Small delay to ensure everything is rendered
-        }
-    }
-    
-    // Run the report generator when the page loads
-    window.onload = generateReport;
-    // Add this to your existing script section, just before the closing </script> tag
 
-// Check if automatic printing is requested via URL parameter
-function checkForAutoPrint() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('print') === 'true' || params.get('print') === '1') {
-        // Wait a moment to ensure everything is rendered
-        setTimeout(() => {
+
+            // Populate total sum
+            // Parse jamisumma to float for formatting, default to 0 if parsing fails
+            document.getElementById('jami-summa').textContent = numberFormat(parseFloat(jamisumma) || 0, 0, '', ',');
+
+            // Populate payment details if paid or qarzdorlik is greater than 0
+            const paymentDetailsContainer = document.getElementById('payment-details-container');
+            if (paid > 0 || qarzdorlik > 0) {
+                let paymentHtml = '';
+                // The original PHP showed both if the condition (paid > 0 || qarzdorlik > 0) was met.
+                // Values would be formatted, so 0 would show as '0'.
+                paymentHtml += `<div class="item-row"><span>Тўланди:</span><span>${numberFormat(paid, 0, '', ',')}</span></div>`;
+                paymentHtml += `<div class="item-row"><span>Қарздорлик:</span><span>${numberFormat(qarzdorlik, 0, '', ',')}</span></div>`;
+                paymentDetailsContainer.innerHTML = paymentHtml;
+            }
+
+            // --- Printing and Closing ---
+            // Call window.print() after all content is populated.
             window.print();
-        }, 500);
-    }
-}
 
-// Call this function when the page loads
-window.addEventListener('load', checkForAutoPrint);
-</script>
+            // Set up an event listener for after printing.
+            // Note: window.close() might be blocked by the browser if the window wasn't opened by a script.
+            // The original file used onfocus="window.close()". onafterprint is generally more appropriate.
+            // If you strictly need the onfocus behavior, you could add:
+            // window.onfocus = function() { if (document.hasFocus()) window.close(); };
+            // However, onafterprint is usually preferred.
+            if (typeof window.onafterprint !== 'undefined') { // Check if onafterprint is supported
+                 window.onafterprint = function () {
+                    window.close();
+                };
+            } else { // Fallback for older browsers or different behavior (closer to original onfocus)
+                // This will attempt to close when the window regains focus after print dialog.
+                window.onfocus = function() {
+                    // A small delay can sometimes help ensure the print dialog is truly gone.
+                    setTimeout(function() {
+                        if (document.hasFocus()) { // Check if the window actually has focus
+                           // window.close(); // Commented out as it can be aggressive.
+                                             // User might want to keep the tab open.
+                                             // The original PHP had onfocus="window.close()" which is quite direct.
+                                             // Re-enabling if strict adherence to original behavior is paramount.
+                           window.close();
+                        }
+                    }, 500);
+                };
+            }
+        });
+    </script>
 </body>
 </html>
