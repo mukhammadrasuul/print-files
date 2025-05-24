@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -92,9 +92,11 @@
         </div>
         <div class="line"></div>
         <div class="bold">Хизматлар</div>
-        <div class="items" id="items-container"></div> <div class="line"></div>
+        <div class="items" id="items-container"></div>
+        <div class="line"></div>
         <div class="item-row bold" id="jami-summa-row"><span>Жами:</span><span id="jami-summa"></span></div>
-        <div id="payment-details-container"></div> <div class="line" id="final-line-before-footer"></div>
+        <div id="payment-details-container"></div>
+        <div class="line" id="final-line-before-footer"></div>
         <div class="footer">
             Бизни танлаганингиз учун раҳмат!<br>
             Телефон: 90 275 03 23
@@ -103,8 +105,11 @@
 
     <script>
         // --- Configuration for Special Services ---
-        // Add names of services that should get their own receipt. Case-insensitive.
-        const SPECIAL_SERVICE_NAMES = ['фиброточ', 'УЗИ обший', 'УЗИ шитовидка', 'УЗИ ўт қопи', 'УЗИ мошонки', 'УЗИ сийдик системаси', 'ЕКГ'];
+        // Add names of services that should get their own receipt.
+        // IMPORTANT: Use the same script (e.g., Cyrillic) as your data.
+        // It's best practice to store them without leading/trailing spaces and in a consistent case (e.g., uppercase),
+        // although the comparison logic below is now more robust to handle variations.
+        const SPECIAL_SERVICE_NAMES = ['УЗИ', 'ФИБРОТОЧ', 'УЗИ ОБШИЙ', 'УЗИ ШИТОВИДКА', 'УЗИ ЎТ ҚОПИ', 'УЗИ МОШОНКИ', 'УЗИ СИЙДИК СИСТЕМАСИ', 'ЭКГ']; // Example: Cleaned and uppercased
 
         // --- Global Print Job Management ---
         let printJobs = [];
@@ -113,7 +118,7 @@
 
         // --- Helper Functions (should be defined before use or within DOMContentLoaded) ---
         function safeGetValue(key, isNumber = false) {
-            if (!urlParams) return isNumber ? 0 : ''; // Should not happen if called correctly
+            if (!urlParams) return isNumber ? 0 : '';
             const value = urlParams.get(key);
             if (value === null || value === "") {
                 return isNumber ? 0 : '';
@@ -122,7 +127,7 @@
         }
 
         function safeExplode(key) {
-            if (!urlParams) return ['']; // Should not happen
+            if (!urlParams) return [''];
             const value = urlParams.get(key);
             return (value && value !== "") ? value.split(",") : [''];
         }
@@ -151,8 +156,6 @@
 
         // --- Function to populate receipt content for a given print job ---
         function populateReceiptContent(job) {
-            // Patient info is static and set once initially.
-
             const itemsContainer = document.getElementById('items-container');
             itemsContainer.innerHTML = ''; // Clear previous items
             let counter = 1;
@@ -168,17 +171,13 @@
                     counter++;
                 });
             } else if (job.type === 'empty_shell_financials') {
-                // No items to list, but financials will be shown.
                 // itemsContainer remains empty.
             }
 
-
-            // Financials visibility and content
             const jamiSummaRowEl = document.getElementById('jami-summa-row');
             const jamiSummaEl = document.getElementById('jami-summa');
             const paymentDetailsContainer = document.getElementById('payment-details-container');
             const finalLineEl = document.getElementById('final-line-before-footer');
-
 
             if (job.showFinancials) {
                 const jamisummaVal = safeGetValue("jamisumma");
@@ -188,8 +187,7 @@
                 jamiSummaEl.textContent = numberFormat(parseFloat(jamisummaVal) || 0, 0, '', ',');
                 
                 let paymentHtml = '';
-                // Show payment details if paid or qarzdorlik is positive, or if they are explicitly zero but jamisumma is present
-                if (urlParams.has('jamisumma')) { // Check if financial section is relevant at all
+                if (urlParams.has('jamisumma')) { 
                     if (paidVal > 0 || qarzdorlikVal > 0 || (paidVal === 0 && qarzdorlikVal === 0) ) {
                         paymentHtml += `<div class="item-row"><span>Тўланди:</span><span>${numberFormat(paidVal, 0, '', ',')}</span></div>`;
                         paymentHtml += `<div class="item-row"><span>Қарздорлик:</span><span>${numberFormat(qarzdorlikVal, 0, '', ',')}</span></div>`;
@@ -197,7 +195,6 @@
                 }
                 paymentDetailsContainer.innerHTML = paymentHtml;
 
-                // Ensure financial sections are visible
                 jamiSummaRowEl.style.display = '';
                 paymentDetailsContainer.style.display = '';
                 finalLineEl.style.display = '';
@@ -205,10 +202,9 @@
             } else {
                 jamiSummaEl.textContent = '';
                 paymentDetailsContainer.innerHTML = '';
-                // Hide financial sections
                 jamiSummaRowEl.style.display = 'none';
                 paymentDetailsContainer.style.display = 'none';
-                finalLineEl.style.display = 'none'; // Hide the line above footer too if no financials
+                finalLineEl.style.display = 'none'; 
             }
         }
 
@@ -216,58 +212,59 @@
         function executeNextPrintJob() {
             if (currentPrintJobIndex < printJobs.length) {
                 populateReceiptContent(printJobs[currentPrintJobIndex]);
-                window.print(); // This will trigger onafterprint (if supported) or block
+                window.print(); 
             }
-            // Note: currentPrintJobIndex is incremented in the onafterprint handler
-            // or after the blocking window.print() if onafterprint is not supported.
         }
 
         // --- Main script execution on DOMContentLoaded ---
         document.addEventListener('DOMContentLoaded', function () {
             urlParams = new URLSearchParams(window.location.search);
 
-            // Populate static patient information once
             document.getElementById('bemor-info').textContent = `${safeGetValue("bemorismi")} (ID: ${safeGetValue("kirimid")})`;
             document.getElementById('telefon-info').textContent = `${safeGetValue("bemortelefon")} (${safeGetValue("bemoryili")})`;
             document.getElementById('doktor-info').textContent = safeGetValue("doktor");
             document.getElementById('sana-info').textContent = safeGetValue("sana");
 
-            // Prepare service items
             const xizmatlarRaw = safeExplode("xizmatlar");
             const soniRaw = safeExplode("soni");
             const allServiceObjects = [];
 
-            // Only create service objects if xizmatlar is not just a single empty string (i.e., parameter was empty or missing)
             if (!(xizmatlarRaw.length === 1 && xizmatlarRaw[0] === '')) {
                 xizmatlarRaw.forEach((xizmat, index) => {
-                    if (xizmat.trim() !== '' || (xizmatlarRaw.length === 1 && xizmat === '')) { // Keep blank item if it's the only one
+                    // Trim the service name here to ensure clean data
+                    const trimmedXizmat = xizmat.trim();
+                    if (trimmedXizmat !== '' || (xizmatlarRaw.length === 1 && xizmat === '')) { // Keep blank item if it's the only one and was originally blank
                          allServiceObjects.push({
-                            name: xizmat,
+                            name: trimmedXizmat, // Use the trimmed name
                             count: soniRaw[index] || '',
                         });
                     }
                 });
             }
             
-            const individualSpecialItemJobsData = []; // Holds items for special receipts
-            const otherItemsData = [];                 // Holds items for the main/other receipt
+            const individualSpecialItemJobsData = []; 
+            const otherItemsData = [];                 
 
             allServiceObjects.forEach(item => {
-                // Case-insensitive check against SPECIAL_SERVICE_NAMES
-                if (SPECIAL_SERVICE_NAMES.some(specialName => item.name.toUpperCase() === specialName.toUpperCase())) {
-                    individualSpecialItemJobsData.push(item); // Each special item gets its own receipt
+                // Robust comparison:
+                // 1. Trim whitespace from item.name (already done when creating allServiceObjects)
+                // 2. Convert item.name to uppercase.
+                // 3. Trim whitespace from specialName (from SPECIAL_SERVICE_NAMES array).
+                // 4. Convert specialName to uppercase.
+                const itemNameUpper = item.name.toUpperCase(); // item.name is already trimmed
+                if (SPECIAL_SERVICE_NAMES.some(specialName => itemNameUpper === specialName.trim().toUpperCase())) {
+                    individualSpecialItemJobsData.push(item); 
                 } else {
                     otherItemsData.push(item);
                 }
             });
 
-            // Build the printJobs array
             printJobs = [];
 
             individualSpecialItemJobsData.forEach(specialItem => {
                 printJobs.push({
-                    items: [specialItem], // One item per special receipt
-                    showFinancials: false, // Financials not shown on individual special item receipts by default
+                    items: [specialItem], 
+                    showFinancials: false, 
                     type: 'special_item'
                 });
             });
@@ -275,23 +272,18 @@
             if (otherItemsData.length > 0) {
                 printJobs.push({
                     items: otherItemsData,
-                    showFinancials: true, // "Other items" receipt always shows financials
+                    showFinancials: true, 
                     type: 'other_items'
                 });
-            } else if (printJobs.length > 0) {
-                // If there were ONLY special items (no "other" items),
-                // the LAST special item's job should show the financials.
+            } else if (printJobs.length > 0) { // Only special items exist
                 printJobs[printJobs.length - 1].showFinancials = true;
-            } else if (allServiceObjects.length === 0 && urlParams.has('bemorismi')) {
-                // Case: No actual services listed (e.g., xizmatlar was empty or missing)
-                // but basic patient info exists, so print a shell receipt with financials.
+            } else if (allServiceObjects.length === 0 && urlParams.has('bemorismi')) { // No services, but patient info exists
                 printJobs.push({
-                    items: [], // No items to list
+                    items: [], 
                     showFinancials: true,
                     type: 'empty_shell_financials'
                 });
             }
-
 
             // Setup onafterprint handler (or fallback)
             if (typeof window.onafterprint !== 'undefined') {
@@ -300,15 +292,12 @@
                     if (currentPrintJobIndex < printJobs.length) {
                         executeNextPrintJob();
                     } else {
-                        window.close(); // All jobs printed, now close
+                        window.close(); 
                     }
                 };
             } else {
                 // Fallback for browsers that don't support onafterprint
-                // This will attempt to print jobs sequentially, but closing is less controlled.
-                // The original PHP had onfocus="window.close()", which is aggressive.
-                // This loop attempts to print all, then sets up the close.
-                window.onfocus = function() { // Set up the final close attempt
+                window.onfocus = function() { 
                     if (currentPrintJobIndex >= printJobs.length) { // Ensure all prints were attempted
                          setTimeout(function() { if (document.hasFocus()) window.close(); }, 500);
                     }
@@ -320,21 +309,15 @@
                 executeNextPrintJob();
             } else if (!urlParams.has('bemorismi')) {
                 // No relevant parameters at all, maybe do nothing or show a message.
-                // For now, it does nothing if no print jobs and no bemorismi.
                 console.log("No print jobs and no patient info found. Nothing to print.");
             }
 
 
             // Fallback for browsers without onafterprint to iterate through prints
-            // This part is tricky because window.print() is blocking.
             if (typeof window.onafterprint === 'undefined' && printJobs.length > 0) {
-                // If onafterprint is not supported, we manually iterate after each print call.
-                // This relies on the blocking nature of print().
-                // This is a simplified loop and might have issues with the onfocus close.
-                // The primary mechanism should be onafterprint.
                 (async () => {
                     for (let i = 0; i < printJobs.length; i++) {
-                        currentPrintJobIndex = i; // Make sure index is set for onfocus check
+                        currentPrintJobIndex = i; 
                         populateReceiptContent(printJobs[i]);
                         window.print(); // This blocks
                         // If we are here, print dialog was closed.
@@ -349,3 +332,38 @@
     </script>
 </body>
 </html>
+```
+
+**Key Changes in the JavaScript:**
+
+1.  **Trimming Service Names from URL:**
+    When creating `allServiceObjects`, `xizmat.trim()` is now used:
+    ```javascript
+    const trimmedXizmat = xizmat.trim();
+    if (trimmedXizmat !== '' || ...) {
+         allServiceObjects.push({
+            name: trimmedXizmat, // Use the trimmed name
+            //...
+        });
+    }
+    ```
+
+2.  **Robust Comparison Logic:**
+    The core comparison logic has been updated:
+    ```javascript
+    const itemNameUpper = item.name.toUpperCase(); // item.name is already trimmed
+    if (SPECIAL_SERVICE_NAMES.some(specialName => itemNameUpper === specialName.trim().toUpperCase())) {
+        // ...
+    }
+    ```
+    * `item.name.toUpperCase()`: The service name from the URL is already trimmed when added to `allServiceObjects` and then converted to uppercase.
+    * `specialName.trim().toUpperCase()`: Each name from your `SPECIAL_SERVICE_NAMES` array is now also trimmed and converted to uppercase *during each comparison*. This makes the matching resilient to extra spaces or case variations in how you've defined them in the array.
+
+3.  **`SPECIAL_SERVICE_NAMES` Array Example:**
+    I've updated the example `SPECIAL_SERVICE_NAMES` in the code to show cleaned, uppercased names, which is still the best practice for defining them, even though the code is now more forgiving.
+    ```javascript
+    const SPECIAL_SERVICE_NAMES = ['УЗИ', 'ФИБРОТОЧ', 'УЗИ ОБШИЙ', ...]; // Example: Cleaned and uppercased
+    ```
+    You should still review your actual `SPECIAL_SERVICE_NAMES` array on GitHub and ensure the Cyrillic spellings are correct and ideally remove extra spaces and use a consistent case (uppercase is recommended) for clarity.
+
+With these changes, the script should be much better at correctly identifying your special services, even if there are minor inconsistencies with spacing or case in your `SPECIAL_SERVICE_NAMES` array or in the URL paramete
